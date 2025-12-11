@@ -2,53 +2,86 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8" />
-<title>Multiplayer Mouse Position</title>
+<title>Multiplayer Mouse Positions</title>
 <style>
-  canvas { border: 1px solid black; display: block; margin: 0 auto; }
+  body { font-family: sans-serif; background: #f0f0f0; }
+  canvas { border: 1px solid black; display: block; margin: 20px auto; }
+  #status { text-align: center; margin-top: 10px; }
 </style>
 </head>
 <body>
+
+<h2 style="text-align:center;">Multiplayer Mouse Positions</h2>
 <canvas id="gameCanvas" width="600" height="400"></canvas>
+<div id="status">Connecting...</div>
 
 <script>
 const canvas = document.getElementById('gameCanvas');
 const ctx = canvas.getContext('2d');
+const statusDiv = document.getElementById('status');
 
 const players = {}; // Store positions: { id: {x, y} }
 
-const socket = new WebSocket('https://summer-voice-e988.barmstrong910.workers.dev/'); // <-- Replace with your WebSocket URL
+// Replace with your WebSocket URL
+const socket = new WebSocket('wss://summer-voice-e988.barmstrong910.workers.dev/ws/');
 
 socket.onopen = () => {
-  console.log('Connected to server');
+  statusDiv.textContent = 'Connected!';
+  console.log('WebSocket connection opened');
 };
 
 socket.onmessage = (event) => {
-  const data = JSON.parse(event.data);
-  // Update or add player position
-  players[data.id] = { x: data.x, y: data.y };
+  try {
+    const data = JSON.parse(event.data);
+    // Update or add player position
+    if (data.id && data.x !== undefined && data.y !== undefined) {
+      players[data.id] = { x: data.x, y: data.y };
+    }
+  } catch (e) {
+    console.error('Error parsing message', e);
+  }
 };
 
+socket.onerror = (err) => {
+  statusDiv.textContent = 'Error connecting to server.';
+  console.error('WebSocket error:', err);
+};
+
+socket.onclose = () => {
+  statusDiv.textContent = 'Disconnected.';
+  console.log('WebSocket connection closed');
+};
+
+// Send mouse position on move
 canvas.addEventListener('mousemove', (e) => {
   const rect = canvas.getBoundingClientRect();
   const x = e.clientX - rect.left;
   const y = e.clientY - rect.top;
-  // Send current mouse position
-  socket.send(JSON.stringify({ type: 'position', x, y }));
+  if (socket.readyState === WebSocket.OPEN) {
+    socket.send(JSON.stringify({ type: 'position', x, y }));
+  }
 });
 
+// Draw all players' positions
 function draw() {
   ctx.clearRect(0, 0, canvas.width, canvas.height);
   for (const id in players) {
     const pos = players[id];
     ctx.beginPath();
-    ctx.arc(pos.x, pos.y, 5, 0, Math.PI * 2);
+    ctx.arc(pos.x, pos.y, 6, 0, Math.PI * 2);
     ctx.fillStyle = 'blue';
     ctx.fill();
+
+    // Optional: display ID
+    ctx.font = '10px Arial';
+    ctx.fillStyle = 'black';
+    ctx.fillText(id.slice(0, 6), pos.x + 8, pos.y - 8);
   }
   requestAnimationFrame(draw);
 }
 
 draw();
 </script>
+
 </body>
 </html>
