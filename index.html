@@ -1,0 +1,54 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<title>Multiplayer Mouse Position</title>
+<style>
+  canvas { border: 1px solid black; display: block; margin: 0 auto; }
+</style>
+</head>
+<body>
+<canvas id="gameCanvas" width="600" height="400"></canvas>
+
+<script>
+const canvas = document.getElementById('gameCanvas');
+const ctx = canvas.getContext('2d');
+
+const players = {}; // Store positions: { id: {x, y} }
+
+const socket = new WebSocket('https://summer-voice-e988.barmstrong910.workers.dev/'); // <-- Replace with your WebSocket URL
+
+socket.onopen = () => {
+  console.log('Connected to server');
+};
+
+socket.onmessage = (event) => {
+  const data = JSON.parse(event.data);
+  // Update or add player position
+  players[data.id] = { x: data.x, y: data.y };
+};
+
+canvas.addEventListener('mousemove', (e) => {
+  const rect = canvas.getBoundingClientRect();
+  const x = e.clientX - rect.left;
+  const y = e.clientY - rect.top;
+  // Send current mouse position
+  socket.send(JSON.stringify({ type: 'position', x, y }));
+});
+
+function draw() {
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
+  for (const id in players) {
+    const pos = players[id];
+    ctx.beginPath();
+    ctx.arc(pos.x, pos.y, 5, 0, Math.PI * 2);
+    ctx.fillStyle = 'blue';
+    ctx.fill();
+  }
+  requestAnimationFrame(draw);
+}
+
+draw();
+</script>
+</body>
+</html>
